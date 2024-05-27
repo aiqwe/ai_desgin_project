@@ -8,7 +8,7 @@ def get_value_type():
         "con": ['키', '체중', '허리둘레', '시력_좌', '시력_우', '청력_좌', '청력_우', '수축기혈압', '이완기혈압',
                 '식전혈당', '총콜레스테롤', '트리글리세라이드', 'HDL콜레스테롤', 'LDL콜레스테롤', '혈색소', '요단백',
                 '혈청크레아티닌', '혈청지오티', '혈청지피티', '감마지티피'],
-        "cate": ['흡연상태', '음주여부', '구강검진수검여부', '치아우식증유무', '치석']
+        "cate": ['흡연상태', '음주여부']
     }
     return type_mapper
 
@@ -25,7 +25,7 @@ def _to_string(data):
 def get_dataframe(df: pd.DataFrame = None) -> pd.DataFrame:
     """ 데이터 프레임 읽어오기 """
     if not df:
-        df = pd.read_csv(str(Path.data_path / "data.csv"))
+        df = pd.read_parquet(str(Path.data_path / "data.parquet"))
     return df
 
 def get_personal_info(user_id: int, df: pd.DataFrame = None, to_string: bool = False) -> dict:
@@ -45,7 +45,7 @@ def get_group_info(user_id: int, df: pd.DataFrame = None, to_string: bool = Fals
     age = user_info['나이']
     gender = user_info['성별']
     df = df.query(f'성별 == "{gender}" and 나이 == {age}')
-    data = {"나이": age, "성별": gender}
+    data = {"기준년도": "TOTAL", "가입자일련번호": "GROUP", "나이": age, "성별": gender}
     data.update(_get_agg_data(df))
 
     if to_string:
