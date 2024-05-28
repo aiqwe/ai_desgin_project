@@ -10,7 +10,8 @@ def _getenv(key):
 def get_completion(
         prompt: str,
         model="gpt-3.5-turbo",
-        api_key: str = None
+        api_key: str = None,
+        response_format = None,
 ) -> str:
     """ ChatGPT API를 통한 챗봇 기능입니다.
     자세한 내용은 https://github.com/openai/openai-python을 참고하세요.
