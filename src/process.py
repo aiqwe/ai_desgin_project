@@ -1,7 +1,7 @@
 import pandas as pd
+import numpy as np
 from functools import cache
 from src import Path
-
 def get_value_type():
     """ 연속변수와 명목변수 구분 """
     type_mapper = {
@@ -47,7 +47,9 @@ def get_group_info(age: int, gender: str, df: pd.DataFrame = None, to_string: bo
         raise ValueError("age should be integer type.")
 
     df = df.query(f'성별 == "{gender}" and 나이 == {age}')
-    data = {"기준년도": "TOTAL", "가입자일련번호": "GROUP", "나이": age, "성별": gender}
+    max_year = df['기준년도'].max()
+    df = df[df['기준년도'] == max_year]
+    data = {"기준년도": "직전년도", "가입자일련번호": "그룹", "나이": age, "성별": gender}
     data.update(_get_agg_data(df))
 
     if to_string:

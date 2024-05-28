@@ -1,10 +1,11 @@
+from datetime import datetime
 import streamlit as st
 import pandas as pd
 from typing import Literal
 from src import process
 from src import api
 from src import prompts
-import plotly.express as px
+import json
 
 st.set_page_config(layout="wide")
 
@@ -15,13 +16,13 @@ def get_data(user_id: int = None, age: int = None, gender: str = None, dic: dict
     user_id = int(user_id)
     group = process.get_group_info(age=age, gender=gender)
     my = process.get_personal_info(user_id = user_id)
+    my.update({"기준년도": datetime.now().year})
     if dic is None:
         raise ValueError("새로 입력한 값이 없습니다.")
     df = pd.DataFrame(data=[group, my, dic], columns=group.keys())
-    df['기준년도'] = df['기준년도'].astype(str)
     df['가입자일련번호'] = df['가입자일련번호'].astype(str)
     df = df.T
-    df.columns = ['평균', '2022년', '현재']
+    df.columns = [f'{age}/{gender} 그룹 평균', '최근 검진 결과', '올해 검진 결과']
     return df
 
 def get_health_completion(
@@ -30,7 +31,7 @@ def get_health_completion(
         dic = None,
         prompt_type: Literal["report", "age"] = None,
         model = None,
-        response_format = None,
+        api_key = None
 ):
 
     prompt_mapper = {
@@ -47,14 +48,13 @@ def get_health_completion(
 
     group_string = process.get_group_info(age=age, gender=gender, to_string=True)
     prompt = prompt_mapper[prompt_type].format(current=process._to_string(dic), group=group_string)
-    response = api.get_completion(prompt=prompt, model=model)
+    response = api.get_completion(prompt=prompt, model=model, api_key=api_key)
     return response
 
 # 건강나이
 @st.experimental_dialog("건강 검진 결과를 입력해보세요.")
 def make_newdata():
     dic = {
-        "기준년도": st.text_input(label="기준년도", placeholder="yyyy로 입력하세요. 예) 2023"),
         "가입자일련번호": st.text_input(label="가입자일련번호", placeholder="1 ~ 100000 사이의 숫자를 입력하세요. 예) 1"),
         "나이": st.text_input(label="나이", placeholder="나이를 입력하세요. 예) 45"),
         "성별": st.text_input(label="성별", placeholder="성별을 입력하세요. 예) 남 또는 여"),
@@ -87,7 +87,11 @@ def make_newdata():
 
 ############################################################ Body ############################################################
 
-st.markdown("### 당신의 건강을 측정해보세요.")
+col1, col2 = st.columns([1, 20])
+with col1:
+    st.image("./assets/health_icon.png")
+with col2:
+    st.markdown("### 당신의 건강을 측정해보세요.")
 st.markdown("---")
 
 if "make_newdata" not in st.session_state:
@@ -101,65 +105,90 @@ if "make_newdata" not in st.session_state:
         """)
         if st.button("입력하러가기"):
             make_newdata()
+        uploaded_file = st.file_uploader("또는 파일을 업로드하세요.")
+        st.write("아래 OPENAI API 정보는 PoC 용으로 임시로 설정합니다.")
+        openai_key = st.text_input(label="OPENAI_API_KEY를 입력하세요.", placeholder="sk-....")
+        openai_model = st.selectbox(label="OPENAI_API에서 사용할 모델을 골라주세요.", options=("gpt-3.5-turbo", "gpt-4o"))
+        st.session_state.openai = {'openai_key': openai_key, 'openai_model': openai_model}
+
+        if uploaded_file is not None:
+            st.write(uploaded_file.name)
+            if uploaded_file.name.endswith("csv"):
+                dic = pd.read_csv(uploaded_file).to_dict("records")[0]
+            if uploaded_file.name.endswith("xlsx"):
+                dic = pd.read_excel(uploaded_file).to_dict("records")[0]
+            st.session_state.make_newdata = {"dic": dic}
+            st.rerun()
+
+
 else:
     dic = st.session_state.make_newdata['dic']
+    openai_key = st.session_state.openai['openai_key']
+    openai_key = api._getenv("OPENAI_API_KEY") if openai_key is None else openai_key
+    openai_model = st.session_state.openai['openai_model']
+    openai_model = openai_model if openai_model is not None else "gpt-4o"
 
-    col1, col2, col3 = st.columns([1, 1.2, 4])
+    col1, col2, col3 = st.columns([1, 3.5, 2.5])
 
     with col1:
+        st.markdown("#### 당신의 건강 검진 결과에요.")
         st.image("./assets/health.png")
-        st.write("당신의 검진 결과에요.")
 
     with col2:
-        df = get_data(user_id=dic['가입자일련번호'], age=int(dic['나이']), gender=dic['성별'], dic=dic)
-        st.dataframe(df, height=500)
+        # get completion
+        with st.status("AI가 소견을 작성중이에요...", expanded=True) as status:
+            st.write("건강검진 결과를 작성중이에요.")
+            health_report = get_health_completion(age=int(dic['나이']),
+                                                  gender=dic['성별'],
+                                                  dic=dic,
+                                                  prompt_type="report",
+                                                  model=openai_model,
+                                                  api_key=openai_key)
+            st.write("건강 나이를 측정중이에요.")
+            health_age_report = get_health_completion(age=int(dic['나이']),
+                                                      gender=dic['성별'],
+                                                      dic=dic,
+                                                      prompt_type="age",
+                                                      model=openai_model,
+                                                      api_key=openai_key)
+
+        # 건강검진 결과
+        with st.chat_message("assistant"):
+            st.write(health_report)
+
+
     with col3:
         df = get_data(user_id=dic['가입자일련번호'], age=int(dic['나이']), gender=dic['성별'], dic=dic)
-        df = df.T
-        con = process.get_value_type()['con']
-        cols = [col for col in df.columns if col in con]
-        for col in cols:
-            selected = df[[col]]
-            st.bar_chart(selected, color = ["#FD8A8A"], width=80)
-        #
-        # for values in display.values():
-        #     st.bar_chart(values)
+        st.dataframe(df, height=900)
 
+    # 건강나이
+    st.markdown("---")
+    st.markdown("#### 당신의 건강 나이에요.")
+    health_age_report = health_age_report.replace("`", "")
+    health_age_report = health_age_report.replace("json", "")
 
-    st.subheader("검진 결과 소견")
+    result = json.loads(health_age_report)
+    health_age = result['health_age']
+    health_age_reason = result['reason']
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        health_age = 50
+        st.metric(
+            label = "당신의 건강 나이",
+            value = f"{health_age}세",
+            delta = f"{health_age - int(dic['나이'])}(실제나이 대비)",
+        )
+        if health_age - int(dic['나이']) > 0:
+            st.markdown("🥲 :red[안되요. 실제 나이보다 더 건강하지 못해요!]")
+        if health_age - int(dic['나이']) < 0:
+            st.markdown("😆 :green[좋아요! 실제 나이보다 더 젊어요!]")
 
-    # # get completion
-    # with st.status("AI가 소견을 작성중이에요...", expanded=True) as status:
-    #     st.write("건강검진 결과를 작성중이에요.")
-    #     health_report = get_health_completion(age=int(dic['나이']), gender=dic['성별'], dic=dic, prompt_type="report", model="gpt-4o")
-    #     st.write("건강 나이를 측정중이에요.")
-    #     health_age_report = get_health_completion(age=int(dic['나이']), gender=dic['성별'], dic=dic, prompt_type="age", model="gpt-4o")
-    #
-    #     # 건강검진 결과
-    # with st.chat_message("assistant"):
-    #     st.write(health_report)
-    #
-    # # 건강나이
-    # st.markdown("---")
-    # st.subheader("당신의 건강 나이는?")
-    # health_age_report = health_age_report.replace("`", "")
-    # health_age_report = health_age_report.replace("json", "")
-    #
-    # result = json.loads(health_age_report)
-    # health_age = result['health_age']
-    # health_age_reason = result['reason']
-    # col1, col2 = st.columns([1, 3])
-    # with col1:
-    #     st.metric(
-    #         label = "당신의 건강 나이",
-    #         value = f"{health_age}세",
-    #         delta = f"{health_age - int(dic['나이'])}(실제나이 대비)",
-    #         delta_color="inverse"
-    #     )
-    # with st.chat_message("assistant"):
-    #     st.write(health_age_reason)
-    #
-    # del st.session_state.make_newdata
+    with col2:
+        with st.chat_message("assistant"):
+            st.write(health_age_reason)
+
+    del st.session_state.make_newdata
+    del st.session_state.openai
 
     if st.button("다시 입력하기"):
         st.rerun()

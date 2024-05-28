@@ -1,4 +1,4 @@
 openai
 pandas
-gradio
+streamlit
 python-dotenv
