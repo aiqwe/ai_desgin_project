@@ -38,12 +38,14 @@ def get_personal_info(user_id: int, df: pd.DataFrame = None, to_string: bool = F
 
     return data
 
-def get_group_info(user_id: int, df: pd.DataFrame = None, to_string: bool = False) -> dict:
+def get_group_info(age: int, gender: str, df: pd.DataFrame = None, to_string: bool = False) -> dict:
     """ 특정 유저의 성/연령에 해당하는 정보를 집계하기"""
     df = _infer_df(dataframe=df)
-    user_info = get_personal_info(user_id=user_id, df=df)
-    age = user_info['나이']
-    gender = user_info['성별']
+    if not isinstance(gender, str):
+        raise ValueError("gender should be string type.")
+    if not isinstance(age, int):
+        raise ValueError("age should be integer type.")
+
     df = df.query(f'성별 == "{gender}" and 나이 == {age}')
     data = {"기준년도": "TOTAL", "가입자일련번호": "GROUP", "나이": age, "성별": gender}
     data.update(_get_agg_data(df))
