@@ -48,6 +48,7 @@ def get_health_completion(
 
     group_string = process.get_group_info(age=age, gender=gender, to_string=True)
     prompt = prompt_mapper[prompt_type].format(current=process._to_string(dic), group=group_string)
+    st.write(prompt)
     response = api.get_completion(prompt=prompt, model=model, api_key=api_key)
     return response
 
