@@ -32,13 +32,13 @@ Openai API key와 모델을 입력해주세요.
 
 
 ### Contributors
-| 이름  | 학번     | 메일                  |
-|-----|--------|---------------------|
-| 박건우 | AXXXXX | aaaaaaaaa@gmail.com |
-| 유황선 | AXXXXX | aaaaaaaaa@gmail.com |
-| 이두진 | AXXXXX | aaaaaaaaa@gmail.com |
-| 정현정 | AXXXXX | aaaaaaaaa@gmail.com |
-| 이재상 | A64058 | sk8terbo2@gmail.com |
+| 이름  | 학번     |
+|-----|--------|
+| 박건우 | A64011 |
+| 유황선 | A67028 |
+| 이두진 | A68066 |
+| 정현정 | A65033 |
+| 이재상 | A64058 |
 
 ### Code Tree
 + [src/data](src/data) : 공공데이터에서 수집한 건강검진 데이터(10만건)
