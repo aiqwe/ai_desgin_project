@@ -48,7 +48,6 @@ def get_health_completion(
 
     group_string = process.get_group_info(age=age, gender=gender, to_string=True)
     prompt = prompt_mapper[prompt_type].format(current=process._to_string(dic), group=group_string)
-    st.write(prompt)
     response = api.get_completion(prompt=prompt, model=model, api_key=api_key)
     return response
 
@@ -56,6 +55,8 @@ def get_health_completion(
 @st.experimental_dialog("건강 검진 결과를 입력해보세요.")
 def make_newdata():
     dic = {
+        "openai_key": st.text_input(label="OPENAI_API_KEY를 입력하세요.", placeholder="sk-...."),
+        "openai_model": st.selectbox(label="OPENAI_API에서 사용할 모델을 골라주세요.", options=("gpt-4o", "gpt-3.5-turbo")),
         "가입자일련번호": st.text_input(label="가입자일련번호", placeholder="1 ~ 100000 사이의 숫자를 입력하세요. 예) 1"),
         "나이": st.text_input(label="나이", placeholder="나이를 입력하세요. 예) 45"),
         "성별": st.text_input(label="성별", placeholder="성별을 입력하세요. 예) 남 또는 여"),
@@ -83,6 +84,7 @@ def make_newdata():
         "음주여부": st.text_input(label="음주여부", placeholder="음주여부를 입력하세요. 예) 1=음주함, 0=음주 안함"),
     }
     if st.button("제출하기"):
+        st.session_state.openai = {'openai_key': dic['openai_key'], 'openai_model': dic['openai_model']}
         st.session_state.make_newdata = {"dic": dic}
         st.rerun()
 
@@ -95,7 +97,7 @@ with col2:
     st.markdown("### 당신의 건강을 측정해보세요.")
 st.markdown("---")
 
-if "make_newdata" not in st.session_state:
+if "make_newdata" not in st.session_state or "openai" not in st.session_state:
     col1, col2 = st.columns([1, 4])
 
     with col1:
@@ -104,13 +106,14 @@ if "make_newdata" not in st.session_state:
         st.markdown("""##### 얼마나 건강한지 궁금하신가요?""")
         st.text("""건강 검진 데이터를 입력하고, 소견을 받아보세요.\n검사 결과 뿐만아니라 건강 나이까지 측정해드립니다.
         """)
-        if st.button("입력하러가기"):
+        if st.button("직접 입력하러가기"):
             make_newdata()
         uploaded_file = st.file_uploader("또는 파일을 업로드하세요.")
         st.write("아래 OPENAI API 정보는 PoC 용으로 임시로 설정합니다.")
-        openai_key = st.text_input(label="OPENAI_API_KEY를 입력하세요.", placeholder="sk-....")
-        openai_model = st.selectbox(label="OPENAI_API에서 사용할 모델을 골라주세요.", options=("gpt-3.5-turbo", "gpt-4o"))
-        st.session_state.openai = {'openai_key': openai_key, 'openai_model': openai_model}
+        openai_key = st.text_input(label="발급받은 OPENAI_API_KEY를 입력하세요.", placeholder="sk-....")
+        openai_model = st.selectbox(label="OPENAI_API에 사용할 모델을 골라주세요.", options=("gpt-4o", "gpt-3.5-turbo"))
+        if openai_key is not None and openai_model is not None:
+            st.session_state.openai = {'openai_key': openai_key, 'openai_model': openai_model}
 
         if uploaded_file is not None:
             st.write(uploaded_file.name)
@@ -119,6 +122,7 @@ if "make_newdata" not in st.session_state:
             if uploaded_file.name.endswith("xlsx"):
                 dic = pd.read_excel(uploaded_file).to_dict("records")[0]
             st.session_state.make_newdata = {"dic": dic}
+        if st.button("파일로 제출하기"):
             st.rerun()
 
 
@@ -173,7 +177,6 @@ else:
     health_age_reason = result['reason']
     col1, col2 = st.columns([1, 5])
     with col1:
-        health_age = 50
         st.metric(
             label = "당신의 건강 나이",
             value = f"{health_age}세",

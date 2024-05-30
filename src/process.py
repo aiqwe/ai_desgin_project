@@ -19,7 +19,7 @@ def _infer_df(dataframe:pd.DataFrame = None):
     return dataframe
 
 def _to_string(data):
-    return "\n".join(f"{key}: {value}" for key, value in data.items())
+    return "".join(f"{key}: {value}\n" for key, value in data.items())
 
 @cache
 def get_dataframe(df: pd.DataFrame = None) -> pd.DataFrame:
