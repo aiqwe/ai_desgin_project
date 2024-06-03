@@ -55,7 +55,7 @@ def get_health_completion(
 @st.experimental_dialog("건강 검진 결과를 입력해보세요.")
 def make_newdata():
     dic = {
-        "openai_key": st.text_input(label="OPENAI_API_KEY를 입력하세요.", placeholder="sk-...."),
+        "openai_key": st.text_input(label="OPENAI_API_KEY를 입력하세요.", placeholder="sk-....", type="password"),
         "openai_model": st.selectbox(label="OPENAI_API에서 사용할 모델을 골라주세요.", options=("gpt-4o", "gpt-3.5-turbo")),
         "가입자일련번호": st.text_input(label="가입자일련번호", placeholder="1 ~ 100000 사이의 숫자를 입력하세요. 예) 1"),
         "나이": st.text_input(label="나이", placeholder="나이를 입력하세요. 예) 45"),
@@ -110,7 +110,7 @@ if "make_newdata" not in st.session_state or "openai" not in st.session_state:
             make_newdata()
         uploaded_file = st.file_uploader("또는 파일을 업로드하세요.")
         st.write("아래 OPENAI API 정보는 PoC 용으로 임시로 설정합니다.")
-        openai_key = st.text_input(label="발급받은 OPENAI_API_KEY를 입력하세요.", placeholder="sk-....")
+        openai_key = st.text_input(label="발급받은 OPENAI_API_KEY를 입력하세요.", placeholder="sk-....", type="password")
         openai_model = st.selectbox(label="OPENAI_API에 사용할 모델을 골라주세요.", options=("gpt-4o", "gpt-3.5-turbo"))
         if openai_key is not None and openai_model is not None:
             st.session_state.openai = {'openai_key': openai_key, 'openai_model': openai_model}
