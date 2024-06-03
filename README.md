@@ -35,7 +35,7 @@ docker / docker-compose가 설치되어있으면 아래와 같이 실행가능�
 ```shell
 docker-compose up -d
 ```
-http://localhost:7860으로 접속하면 사용 가능합니다!
+http://localhost:7860 으로 접속하면 사용 가능합니다!
 
 
 ### Contributors
