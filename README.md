@@ -28,6 +28,14 @@ Local URL: http://localhost:7860 # 여기로 접속 가능!
 
 ### 실행하기(docker)
 docker / docker-compose가 설치되어있으면 아래와 같이 실행가능합니다.
+
+1. 먼저 git clone을 해주세요
+```shell
+git clone https://github.com/aiqwe/ai_desgin_project.git
+cd ai_design_project
+```
+
+2. docker-compose를 실행시킵니다.
 ```shell
 docker-compose up -d
 ```
