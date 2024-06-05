@@ -40,6 +40,12 @@ class Chroma:
         """ 조회하기 """
         collection = self.get_collection(self.collection_name)
         return collection.query(query_embeddings=query_embeddings, n_results=n_results)
+
+    def __repr__(self):
+        return f"Collections List:\n{self.client.list_collections()}"
+
+    def __getitem__(self, key):
+        return self.client.get_collection(key)
         
         
         
