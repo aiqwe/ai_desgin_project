@@ -11,12 +11,6 @@ def _infer_device() -> str:
         return "cuda"
     elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
-    elif mlu_available:
-        return "mlu"
-    elif is_xpu_available():
-        return "xpu"
-    elif is_npu_available():
-        return "npu"
     return "cpu"
 
 def _call_default_model(device: str = None):
@@ -24,7 +18,7 @@ def _call_default_model(device: str = None):
     if not device:
         device =_infer_device()
     model_id = "intfloat/multilingual-e5-small"
-    model = AutoModel.from_pretrained(model_id, device_map=device)
+    model = AutoModel.from_pretrained(model_id).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_id)
 
     return model, tokenizer
@@ -63,8 +57,8 @@ def average_pool(
 
     Args:
         input_text: 임베딩될 문장 또는 문장의 리스트
-        model: 임베딩을 수행할 모델 (default: intfloat/multilingual-e5-base)
-        tokenizer: 모델의 토크나이저 (default: intfloat/multilingual-e5-base)
+        model: 임베딩을 수행할 모델 (default: intfloat/multilingual-e5-small)
+        tokenizer: 모델의 토크나이저 (default: intfloat/multilingual-e5-small)
         device: 모델의 device 설정
 
     Returns: Average Pool된 임베딩 텐서

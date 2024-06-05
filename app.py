@@ -1,15 +1,22 @@
 from datetime import datetime
 import streamlit as st
 import pandas as pd
-from typing import Literal
-from src import process
-from src import api
-from src import prompts
+from typing import Literal, Dict, List
+import time
 import json
+import webbrowser as wb
+from urllib import parse
+from src import (
+    process,
+    api,
+    prompts,
+    chromadb,
+    encoder
+)
 
 st.set_page_config(layout="wide")
 
-############################################################ Declaration ############################################################
+# Function Declaration
 def get_data(user_id: int = None, age: int = None, gender: str = None, dic: dict = None):
     if not user_id or not age or not gender:
         raise ValueError("가입자일련번호, 나이, 성별은 필수값입니다.")
@@ -25,30 +32,41 @@ def get_data(user_id: int = None, age: int = None, gender: str = None, dic: dict
     df.columns = [f'{age}/{gender} 그룹 평균', '최근 검진 결과', '올해 검진 결과']
     return df
 
+@st.cache_data
 def get_health_completion(
-        age = None,
-        gender = None,
-        dic = None,
-        prompt_type: Literal["report", "age"] = None,
-        model = None,
-        api_key = None
-):
+        messages: List[Dict] = None,
+        model: str = None,
+        api_key: str = None
+) -> str:
+    """
+    GPT API로 건강검진 결과, 건강 나이 Response를 Request합니다.
+    Args:
+        model: 사용할 GPT 모델
+        api_key: Open AI API Key
+        prompt_config: 프롬프트 및 프롬프트에 전달할 포맷
+          - prompt_config['messages'] : (필수값) 사용할 멀티턴 mesages
+          작성 예시)
 
-    prompt_mapper = {
-        "report": prompts.HEALTH_REPORT_PROMPT,
-        "age": prompts.HEALTH_AGE_PROMPT
-    }
+              prompt = "{clothes} 입고가도되?".format(clothes=clothes)
 
-    if dic is None or age is None or gender is None:
-        raise ValueError(
-            "건강검진결과를 입력해주세요. 나이와 성별은 필수값입니다."
-        )
-    if model is None:
-        model = "gpt-3.5-turbo"
+              messages = [
+                  {"role": "system", "content": "당신은 날씨를 잘 알고 있는 코디네이터에요."},
+                  {"role": "user", "content": "오늘 날씨 알려줘"},
+                  {"role": "assistant", "content": "오늘 날씨는 30도로 예상되며..."},
+                  {"role": "assistant", "content": prompt}
+              ]
 
-    group_string = process.get_group_info(age=age, gender=gender, to_string=True)
-    prompt = prompt_mapper[prompt_type].format(current=process._to_string(dic), group=group_string)
-    response = api.get_completion(prompt=prompt, model=model, api_key=api_key)
+    Returns: ChatGPT Response 문자열
+
+    """
+
+    if not messages:
+        raise ValueError("messages는 필수값입니다.")
+
+    if not model:
+        model = "gpt-4o"
+
+    response = api.get_completion(messages=messages, model=model, api_key=api_key)
     return response
 
 # 건강나이
@@ -88,6 +106,19 @@ def make_newdata():
         st.session_state.make_newdata = {"dic": dic}
         st.rerun()
 
+def text_generator(text):
+    tokens = text.split(" ")
+    for token in tokens:
+        yield token + " "
+        time.sleep(0.02)
+
+def json_parse(text):
+    text = text.replace("`", "")
+    text = text.replace("json", "")
+    text = text.replace("json", "")
+    result = json.loads(text)
+    return result
+
 ############################################################ Body ############################################################
 
 col1, col2 = st.columns([1, 20])
@@ -125,42 +156,64 @@ if "make_newdata" not in st.session_state or "openai" not in st.session_state:
         if st.button("파일로 제출하기"):
             st.rerun()
 
-
+# 건강 검진 결과 / 건강 나이 메인 페이지
 else:
+    # Variable Declaration
     dic = st.session_state.make_newdata['dic']
     openai_key = st.session_state.openai['openai_key']
-    openai_key = api._getenv("OPENAI_API_KEY") if openai_key is None else openai_key
+    openai_key = openai_key if openai_key else api._getenv("OPENAI_API_KEY")
     openai_model = st.session_state.openai['openai_model']
     openai_model = openai_model if openai_model is not None else "gpt-4o"
+    chroma = chromadb.Chroma('test')
 
-    col1, col2, col3 = st.columns([1, 3.5, 2.5])
+    age = int(dic['나이'])
+    gender = dic['성별']
 
+    group_string = process.get_group_info(age=age, gender=gender, to_string=True)
+    current_string = process._to_string(dic)
+
+    # get completion
+    with st.status("AI가 검진 결과를 작성중이에요...", expanded=True) as status:
+        st.write_stream(text_generator("건강검진 결과를 해석중이에요..."))
+        messages = [
+            {"role": "user", "content": prompts.HEALTH_REPORT_PROMPT_1.format(current=current_string, group=group_string)}
+        ]
+        disease = get_health_completion(messages=messages, model=openai_model, api_key=openai_key)
+        disease = json_parse(disease)
+        st.text(disease['disease'])
+
+        if len(disease['disease']) > 1 or disease['disease'][0] != "NO":
+            disease_exists = False
+
+        urls_string = ""
+        if not disease_exists:
+            st.write_stream(text_generator("관련된 문서를 Vector DB에서 찾고 있어요..."))
+            urls = [chroma.query(encoder.average_pool(d).tolist(), n_results=1)['metadatas'][0][0]['url'] for d in disease['disease']]
+            urls_string = process._to_string(urls)
+        st.write_stream(text_generator("찾은 문서로 GPT에게 물어보고 있어요..."))
+        messages.append({"role": "user", "content": prompts.HEALTH_REPORT_PROMPT_2.format(current=current_string, group=group_string, url=urls_string)})
+        health_report = get_health_completion(messages=messages, model=openai_model, api_key=openai_key)
+
+    col1, col2, col3 = st.columns([1.5, 4, 2.5])
     with col1:
         st.markdown("#### 당신의 건강 검진 결과에요.")
         st.image("./assets/health.png")
+        st.text(disease)
+        st.text("YES" if disease else "NO")
+        if not disease_exists:
+            disease_string = "".join(disease['disease'])
+            st.markdown("이 질병들을 조심하세요!")
+            st.markdown("판교 근처에는 이런 병원들이 있어요")
+            if st.button("병원 찾기"):
+                area_encoded = parse.quote("판교")
+                disease_encoded = parse.quote(disease['disease'][0])
+                hospital_url = f"https://map.naver.com/p/search/{area_encoded}%20{disease_encoded}"
+                wb.open_new(hospital_url)
 
+
+    # 건강검진 결과
     with col2:
-        # get completion
-        with st.status("AI가 소견을 작성중이에요...", expanded=True) as status:
-            st.write("건강검진 결과를 작성중이에요.")
-            health_report = get_health_completion(age=int(dic['나이']),
-                                                  gender=dic['성별'],
-                                                  dic=dic,
-                                                  prompt_type="report",
-                                                  model=openai_model,
-                                                  api_key=openai_key)
-            st.write("건강 나이를 측정중이에요.")
-            health_age_report = get_health_completion(age=int(dic['나이']),
-                                                      gender=dic['성별'],
-                                                      dic=dic,
-                                                      prompt_type="age",
-                                                      model=openai_model,
-                                                      api_key=openai_key)
-
-        # 건강검진 결과
-        with st.chat_message("assistant"):
-            st.write(health_report)
-
+        st.chat_message("assistant").write_stream(text_generator(health_report))
 
     with col3:
         df = get_data(user_id=dic['가입자일련번호'], age=int(dic['나이']), gender=dic['성별'], dic=dic)
@@ -168,11 +221,14 @@ else:
 
     # 건강나이
     st.markdown("---")
-    st.markdown("#### 당신의 건강 나이에요.")
-    health_age_report = health_age_report.replace("`", "")
-    health_age_report = health_age_report.replace("json", "")
+    with st.status("AI가 건강 나이를 작성중이에요...", expanded=True) as status:
+        st.write_stream(text_generator("건강 나이를 측정중이에요."))
+        messages.append({'role': 'user', 'content': prompts.HEALTH_AGE_PROMPT})
+        health_age_report = get_health_completion(messages=messages, model=openai_model, api_key=openai_key)
 
-    result = json.loads(health_age_report)
+    st.markdown("#### 당신의 건강 나이에요.")
+
+    result = json_parse(health_age_report)
     health_age = result['health_age']
     health_age_reason = result['reason']
     col1, col2 = st.columns([1, 5])
@@ -189,12 +245,6 @@ else:
 
     with col2:
         with st.chat_message("assistant"):
-            st.write(health_age_reason)
-
-    del st.session_state.make_newdata
-    del st.session_state.openai
-
-    if st.button("다시 입력하기"):
-        st.rerun()
+            st.write_stream(text_generator(health_age_reason))
 
 

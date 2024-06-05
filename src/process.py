@@ -1,9 +1,10 @@
 import pandas as pd
-import numpy as np
 from functools import cache
 from src import Path
-def get_value_type():
-    """ 연속변수와 명목변수 구분 """
+import json
+
+def get_value_type() -> dict:
+    """ 연속변수와 명목변수 구분해주는 딕셔너리 리턴 """
     type_mapper = {
         "con": ['키', '체중', '허리둘레', '시력_좌', '시력_우', '청력_좌', '청력_우', '수축기혈압', '이완기혈압',
                 '식전혈당', '총콜레스테롤', '트리글리세라이드', 'HDL콜레스테롤', 'LDL콜레스테롤', '혈색소', '요단백',
@@ -12,14 +13,15 @@ def get_value_type():
     }
     return type_mapper
 
-def _infer_df(dataframe:pd.DataFrame = None):
-    """ 데이터프레임을 명시하지 않으면 data.csv를 읽도록 하기"""
+def _infer_df(dataframe:pd.DataFrame = None) -> pd.DataFrame:
+    """ 데이터프레임을 명시하지 않으면 data.csv를 읽도록 하기 """
     if dataframe is None:
         dataframe = get_dataframe()
     return dataframe
 
 def _to_string(data):
-    return "".join(f"{key}: {value}\n" for key, value in data.items())
+    """ DataFrame String형태로 변환 """
+    return json.dumps(data, ensure_ascii=False)
 
 @cache
 def get_dataframe(df: pd.DataFrame = None) -> pd.DataFrame:

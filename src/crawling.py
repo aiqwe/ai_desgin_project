@@ -1,6 +1,7 @@
 from random import randint
 import time
 import json
+from typing import Iterable
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 from selenium import webdriver
@@ -10,6 +11,7 @@ from selenium.webdriver.chrome.options import Options
 
 
 def _parse_seleinum_response(result):
+    """ 크롤링한 셀레니움 객체를 title, text, url로 파싱 """
     data = []
     for content in result:
         title = content.text.split("\n")[0].split("[")[0].strip()
@@ -20,7 +22,8 @@ def _parse_seleinum_response(result):
         
     return data
 
-def _selenium_crawling(page_num):
+def _selenium_crawling(page_num: int):
+    """ 셀레니움 크롤링 내부 함수"""
     
     options = Options()
     options.add_argument('--headless')
@@ -36,7 +39,8 @@ def _selenium_crawling(page_num):
     
     return data
 
-def parallel_crawling(n_worker = None, iterables=None):
+def parallel_crawling(n_worker: int = None, iterables:Iterable = None):
+    """ Multiprocessing으로 크롤링 병렬처리 """
     
     workers = cpu_count() - 3
     
