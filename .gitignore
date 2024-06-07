@@ -1,4 +1,6 @@
 # FROM: https://github.com/github/gitignore/blob/main/Python.gitignore
+# wandb
+/wandb
 
 # gradio
 /flagged

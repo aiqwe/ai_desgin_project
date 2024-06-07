@@ -1,3 +1,5 @@
+""" Chroma DB Controller """
+
 import chromadb
 
 class Chroma:
