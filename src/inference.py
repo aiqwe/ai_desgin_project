@@ -7,7 +7,8 @@ from transformers import AutoTokenizer, AutoModel
 import transformers
 from functools import partial
 
-MODEL_ID = "intfloat/multilingual-e5-small"
+# MODEL_ID = "intfloat/multilingual-e5-small"
+MODEL_ID = "aiqwe/health_encoder"
 
 def _infer_device() -> str:
     """ device 자동설정 https://github.com/huggingface/peft/blob/6f41990da482dba96287da64a3c7d3c441e95e23/src/peft/utils/other.py#L75"""

@@ -1,17 +1,15 @@
 python train.py \
 --overwrite_output_dir \
---num_train_epochs=5 \
+--num_train_epochs=2 \
 --per_device_train_batch_size=32 \
 --output_dir=health_encoder \
---learning_rate=1e-3 \
---warmup_ratio=0.1 \
+--learning_rate=3e-4 \
+--warmup_ratio=0.05 \
 --do_train \
---do_eval \
 --bf16 \
 --optim=adamw_torch_fused \
---logging_steps=50 \
+--logging_steps=10 \
 --save_strategy=epoch \
---evaluation_strategy=epoch \
 --lr_scheduler_type=cosine \
 --max_grad_norm=0.3 \
 --report_to=wandb \
