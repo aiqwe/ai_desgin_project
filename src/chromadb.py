@@ -64,7 +64,7 @@ class Chroma:
             data = file_name
         
         def _parallel_add_documents(data):
-            documents = "###" + data['title'] + "\n" + data['text']
+            documents = "###" + data['title'] + "\n" + data['text'] + data['url'] # 중복값 방지를 위해 식별코드 대신
             data.update({"documents": documents})
             return data
 
