@@ -10,6 +10,10 @@ from functools import partial
 # MODEL_ID = "intfloat/multilingual-e5-small"
 MODEL_ID = "aiqwe/health_encoder"
 
+def _split_chunk(lst, n_size):
+    for i in range(0, len(lst), n_size):
+        yield lst[i:i+n_size]
+
 def _infer_device() -> str:
     """ device 자동설정 https://github.com/huggingface/peft/blob/6f41990da482dba96287da64a3c7d3c441e95e23/src/peft/utils/other.py#L75"""
     if torch.cuda.is_available():
@@ -84,4 +88,42 @@ def average_pool(
     last_hidden = output.last_hidden_state.masked_fill(~inputs['attention_mask'][..., None].bool(), 0.0)
     embeddings = (last_hidden.sum(dim=1) / inputs['attention_mask'].sum(dim=1)[..., None]).to("cpu")
     embeddings = F.normalize(embeddings, p=2, dim=1)
+    return embeddings
+
+def batch_average_pool(
+        input_text: Union[List[str], str],
+        model: transformers.PreTrainedModel = None,
+        tokenizer: transformers.PreTrainedTokenizer = None,
+        device: str = None
+) -> torch.Tensor:
+    """Input으로 받는 문장 내 여러 토큰들을 Average Pool을 사용해서 하나의 임베딩 값으로 변환해줍니다..
+
+    Args:
+        input_text: 임베딩될 문장 또는 문장의 리스트
+        model: 임베딩을 수행할 모델 (default: intfloat/multilingual-e5-small)
+        tokenizer: 모델의 토크나이저 (default: intfloat/multilingual-e5-small)
+        device: 모델의 device 설정
+
+    Returns: Average Pool된 임베딩 텐서
+
+    """
+    if (not model) or (not tokenizer):
+        model, tokenizer = _call_default_model(device=device)
+
+    splitted = _split_chunk(input_text, 128)
+    size = len(list(_split_chunk(splitted, 128)))
+
+    for idx in range(size):
+        inputs = tokenizer(
+            splitted[idx],
+            max_length=tokenizer.model_max_length,
+            padding=True,
+            truncation=True,
+            return_tensors="pt"
+        ).to(model.device)
+
+        output = model(**inputs)
+        last_hidden = output.last_hidden_state.masked_fill(~inputs['attention_mask'][..., None].bool(), 0.0)
+        embeddings = (last_hidden.sum(dim=1) / inputs['attention_mask'].sum(dim=1)[..., None]).to("cpu")
+        embeddings = F.normalize(embeddings, p=2, dim=1)
     return embeddings

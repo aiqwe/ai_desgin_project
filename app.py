@@ -11,7 +11,7 @@ from src import (
     api,
     prompts,
     chromadb,
-    inference
+    encoder
 )
 
 st.set_page_config(layout="wide")
