@@ -10,3 +10,4 @@ pandas
 streamlit
 python-dotenv
 chromadb
+tqdm

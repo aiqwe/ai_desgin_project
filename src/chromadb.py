@@ -27,16 +27,41 @@ class Chroma:
         self.client.delete_collection(name = collection_name if collection_name else self.collection_name)
     
     
-    def upsert(self, documents, ids, uris, embeddings):
+    def upsert(self, documents, ids, metadatas, embeddings, **kwargs):
         """ data upsert """
         collection = self.get_collection(self.collection_name)
         collection.upsert(
             documents = documents,
             ids = ids,
-            uris = uris,
-            embeddings = embeddings
+            metadatas = metadatas,
+            embeddings = embeddings,
+            **kwargs
         )
         print(f"Upserted # of {len(documents)}Documents.")
+
+        
+#     def batch_upsert(self, documents, ids, metadatas, embeddings, **kwargs):
+#         """ data upsert """
+        
+#         def _parallel_processing(data):
+#             documents = "###" + data['title'] + "\n" + data['text']
+#             data.update({"documents": documents})
+#             return data
+        
+#         with Pool(cpu_count()-2) as p:
+#             embeddings = list(tqdm(p.imap(_parallel_processing, data)))
+#         return embeddings
+        
+        collection = self.get_collection(self.collection_name)
+        collection.upsert(
+            documents = documents,
+            ids = ids,
+            metadatas = metadatas,
+            embeddings = embeddings,
+            **kwargs
+        )
+        print(f"Upserted # of {len(documents)}Documents.")
+        
         
     def query(self, query_embeddings, n_results=5):
         """ 조회하기 """
